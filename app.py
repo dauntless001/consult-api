@@ -13,7 +13,7 @@ def get_app() -> FastAPI:
     :return: application.
     """
     app = FastAPI(
-        title="Consult Service API",
+        title="Consult API",
         description="A consultation platform where patient can get solutions from doctors",
         version="1.0",
         docs_url="/api/docs/",
