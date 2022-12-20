@@ -1,0 +1,1 @@
+Consult is a Health oriented platform, where patients seeks verified medical practitioners solutions to medical problems
