@@ -1,29 +1,21 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Security
 from sqlalchemy.orm import Session
 from database import db_session
-from passlib.context import CryptContext
 from models.user import User
 from datetime import datetime, timedelta
-from .schemas import Signup
+from .schemas import Signup, Login
+from utils import auth
+from models.user import User
+from sqlmodel import select
+from jose import jwt
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-pwd_crypt = CryptContext(schemes=['bcrypt'], deprecated='auto')
-config_credentials = {
-    'SECRET_KEY' : "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7",
-    'ALGORITHM' : "HS256",
-    'ACCESS_TOKEN_EXPIRE_MINUTES' : 30
-}
-
-authorized_exception = HTTPException(
-    status_code=status.HTTP_401_UNAUTHORIZED,
-    detail = 'Invalid Email or Password',
-    headers={"WWW-Authenticate":'Bearer'}
-)
 
 class UserService:
     def __init__(self, session: Session = Depends(db_session)):
         self.session = session
 
-    async def create_user(self, user: Signup) -> User:
+    def create_user(self, user: Signup) -> User:
         password = self.get_hashed_password(user.password)
         user.password = password
         new_user = User(**user.dict())
@@ -33,4 +25,44 @@ class UserService:
         return new_user
     
     def get_hashed_password(self, password):
-        return pwd_crypt.hash(password)
+        return auth.password_context.hash(password)
+    
+    def verify_password(self, plain_password, hashed_password):
+        return auth.password_context.verify(plain_password, hashed_password)
+    
+    def authenticate_user(self, email: str, password: str):
+        statement = select(User).where(User.email == email)
+        user = self.session.execute(statement).scalars().first()
+        if user:
+            if self.verify_password(password, user.password):
+                return user
+        return False
+    
+    def create_access_token(self, data: dict, expires_delta: timedelta = None):
+        to_encode = data.copy()
+        if expires_delta:
+            expire = datetime.utcnow() + expires_delta
+        else:
+            expire = datetime.utcnow() + timedelta(minutes=15)
+        to_encode.update({"exp": expire})
+        encoded_jwt = jwt.encode(to_encode, auth.config_credentials['SECRET_KEY'], algorithm=auth.config_credentials['ALGORITHM'])
+        return encoded_jwt
+
+    def login_user(self, user : Login):
+        user = self.authenticate_user(user.email, user.password)
+        if not user:
+            raise auth.invalid_login_credentials
+        access_token = self.create_access_token(
+            data={"sub":f'{user.id}'}, expires_delta=timedelta(minutes=auth.config_credentials['ACCESS_TOKEN_EXPIRE_MINUTES'])
+        )
+        data = {"user": user, "bearer_token": f'{access_token}'}
+        data['message'] = 'Login Successful'
+        return data
+    
+    def auth_wrapper(self, token : HTTPAuthorizationCredentials = Security(HTTPBearer())):
+        try:
+            payload = jwt.decode(token.credentials,auth.config_credentials['SECRET_KEY'], auth.config_credentials['ALGORITHM'])
+            return payload['sub']
+        except:
+            raise auth.token_expired
+    
