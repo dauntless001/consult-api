@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from database import db_session
 from models.user import User
 from datetime import datetime, timedelta
-from .schemas import Signup, Login
+from .schemas import Signup, Login, ChangePassword
 from utils import auth
 from models.user import User
 from sqlmodel import select
@@ -43,7 +43,7 @@ class UserService:
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=15)
+            expire = datetime.utcnow() + timedelta(minutes=auth.config_credentials['ACCESS_TOKEN_EXPIRE_MINUTES'])
         to_encode.update({"exp": expire})
         encoded_jwt = jwt.encode(to_encode, auth.config_credentials['SECRET_KEY'], algorithm=auth.config_credentials['ALGORITHM'])
         return encoded_jwt
@@ -58,6 +58,22 @@ class UserService:
         data = {"user": user, "bearer_token": f'{access_token}'}
         data['message'] = 'Login Successful'
         return data
+    
+    def get_user_by_id(self, id):
+        statement = select(User).where(User.id == id)
+        user = self.session.execute(statement).scalars().first()
+        if not user:
+            raise auth.user_not_found
+        return user
+    
+    def change_password(self, user_id : str, password : ChangePassword):
+        user = self.get_user_by_id(user_id)
+        if not self.verify_password(password.current_password, user.password):
+            raise auth.password_not_matched
+        user.password = self.get_hashed_password(password.new_password)
+        self.session.commit()
+        return {"message" : "Password Changed Successfully", "user":user}
+
     
     def auth_wrapper(self, token : HTTPAuthorizationCredentials = Security(HTTPBearer())):
         try:

@@ -19,6 +19,8 @@ async def signup(form:schemas.Signup, session: Session = Depends(db_session)):
     return user
 
 @router.post('/change-password')
-async def change_password(user_id = Depends(auth_handler.auth_wrapper)):
-    return user_id
+async def change_password(form : schemas.ChangePassword, session: Session = Depends(db_session),user_id = Depends(auth_handler.auth_wrapper)):
+    userService = services.UserService(session=session)
+    change_password = userService.change_password(user_id, form)
+    return change_password
 
