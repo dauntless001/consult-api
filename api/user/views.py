@@ -24,3 +24,8 @@ async def change_password(form : schemas.ChangePassword, session: Session = Depe
     change_password = userService.change_password(user_id, form)
     return change_password
 
+
+@router.post('/reset-password')
+async def reset_password(form : schemas.EmailSchema):
+    return {}
+

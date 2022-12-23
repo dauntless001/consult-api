@@ -4,7 +4,7 @@ from database import db_session
 from models.user import User
 from datetime import datetime, timedelta
 from .schemas import Signup, Login, ChangePassword
-from utils import auth
+from utils import auth, message
 from models.user import User
 from sqlmodel import select
 from jose import jwt
@@ -16,13 +16,17 @@ class UserService:
         self.session = session
 
     def create_user(self, user: Signup) -> User:
-        password = self.get_hashed_password(user.password)
-        user.password = password
-        new_user = User(**user.dict())
-        self.session.add(new_user)
-        self.session.commit()
-        self.session.refresh(new_user)
-        return new_user
+        statement = select(User).where(User.email == user.email)
+        user_exist = self.session.execute(statement).scalars().first()
+        if not user_exist:
+            password = self.get_hashed_password(user.password)
+            user.password = password
+            new_user = User(**user.dict())
+            self.session.add(new_user)
+            self.session.commit()
+            self.session.refresh(new_user)
+            return new_user
+        raise message.get_message('Email Already Exist', 401)
     
     def get_hashed_password(self, password):
         return auth.password_context.hash(password)
@@ -51,7 +55,7 @@ class UserService:
     def login_user(self, user : Login):
         user = self.authenticate_user(user.email, user.password)
         if not user:
-            raise auth.invalid_login_credentials
+            raise message.get_message('Invalid Email or Password', 401)
         access_token = self.create_access_token(
             data={"sub":f'{user.id}'}, expires_delta=timedelta(minutes=auth.config_credentials['ACCESS_TOKEN_EXPIRE_MINUTES'])
         )
@@ -63,13 +67,13 @@ class UserService:
         statement = select(User).where(User.id == id)
         user = self.session.execute(statement).scalars().first()
         if not user:
-            raise auth.user_not_found
+            raise message.get_message('User Not Found', 404)
         return user
     
     def change_password(self, user_id : str, password : ChangePassword):
         user = self.get_user_by_id(user_id)
         if not self.verify_password(password.current_password, user.password):
-            raise auth.password_not_matched
+            raise message.get_message("Password Does not Match")
         user.password = self.get_hashed_password(password.new_password)
         self.session.commit()
         return {"message" : "Password Changed Successfully", "user":user}
@@ -80,5 +84,5 @@ class UserService:
             payload = jwt.decode(token.credentials,auth.config_credentials['SECRET_KEY'], auth.config_credentials['ALGORITHM'])
             return payload['sub']
         except:
-            raise auth.token_expired
+            raise message.get_message("Invalid Authorization Token or Authorization Token Expired, Login Again", 401)
     

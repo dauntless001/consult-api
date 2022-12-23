@@ -1,12 +1,12 @@
 from .base import TimestampModel, UUIDModel
-
+from sqlmodel import Field
 
 class User(UUIDModel, TimestampModel, table=True):
     __tablename__ = "user"
 
     first_name: str
     last_name: str
-    email: str
+    email: str = Field(sa_column_kwargs={"unique": True})
     password: str
 
     def __repr__(self):
