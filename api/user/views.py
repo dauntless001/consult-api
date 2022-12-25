@@ -57,8 +57,6 @@ async def reset_password_token(token : str,password : str, session: Session = De
 async def verify_email(email : EmailStr, request: Request, session: Session = Depends(db_session)):
     userService = services.UserService(session=session)
     user = userService.get_user_by_email(email)
-    if not user:
-        raise get_message('User with this Email not Found', 404)
     token = userService.create_access_token({'id':f'{user.id}', 'email':user.email})
     return verification_mail(request, user, token)
 
