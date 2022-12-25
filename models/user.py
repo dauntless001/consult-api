@@ -8,6 +8,7 @@ class User(UUIDModel, TimestampModel, table=True):
     last_name: str
     email: str = Field(sa_column_kwargs={"unique": True})
     password: str
+    email_verified : bool = False
 
     def __repr__(self):
         return f"<User (id: {self.id})>"

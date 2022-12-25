@@ -1,29 +1,28 @@
-from pydantic import BaseModel, ValidationError, validator
+from pydantic import BaseModel, ValidationError, validator, EmailStr
 from uuid import UUID
 from utils import validators
 from datetime import datetime
 
 class Login(BaseModel):
-    email: str
+    email: EmailStr
     password: str
-    _validate_email = validator('email', allow_reuse=True)(validators.validate_email)
 
 class Signup(BaseModel):
     first_name: str
     last_name: str
-    email: str
+    email: EmailStr
     password: str
 
     # Validators
-    _validate_email = validator('email', allow_reuse=True)(validators.validate_email)
     _validate_password = validator("password", allow_reuse=True)(validators.validate_password)
 
 class User(BaseModel):
     id: UUID
     first_name: str
     last_name: str
-    email: str
+    email: EmailStr
     password: str
+    email_verified : bool
     created_at : datetime
     updated_at : datetime
 
@@ -46,8 +45,3 @@ class ChangePassword(BaseModel):
         if 'new_password' in values and v != values['new_password']:
             raise ValueError('New Password & Confirm New Password Must Match')
         return v
-
-class EmailSchema(BaseModel):
-    email : str
-
-    _validate_email = validator('email', allow_reuse=True)(validators.validate_email)

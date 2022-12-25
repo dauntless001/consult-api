@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     WORKERS_COUNT: int = 1
     # Enable uvicorn reloading
     RELOAD: bool
+    # Database
     DB_ECHO: bool = False
     DB_USER : str
     DB_PASS : str
@@ -21,6 +22,15 @@ class Settings(BaseSettings):
     DB_HOST: str
     DB_PORT: int
     DB_TYPE : str
+
+    # Email 
+    EMAIL_USERNAME : str
+    EMAIL_PASSWORD : str
+    EMAIL_FROM : str
+    EMAIL_PORT : str
+    EMAIL_HOST : str
+
+
     
     @property
     def DB_URL(self) -> str:

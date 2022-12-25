@@ -34,9 +34,15 @@ class UserService:
     def verify_password(self, plain_password, hashed_password):
         return auth.password_context.verify(plain_password, hashed_password)
     
-    def authenticate_user(self, email: str, password: str):
+    def get_user_by_email(self, email : str):
         statement = select(User).where(User.email == email)
         user = self.session.execute(statement).scalars().first()
+        if not user:
+            raise message.get_message('User with this Email not Found', 404)
+        return user
+    
+    def authenticate_user(self, email: str, password: str):
+        user = self.get_user_by_email(email)
         if user:
             if self.verify_password(password, user.password):
                 return user
@@ -77,12 +83,16 @@ class UserService:
         user.password = self.get_hashed_password(password.new_password)
         self.session.commit()
         return {"message" : "Password Changed Successfully", "user":user}
-
     
-    def auth_wrapper(self, token : HTTPAuthorizationCredentials = Security(HTTPBearer())):
+    def decode_token(self, token):
         try:
-            payload = jwt.decode(token.credentials,auth.config_credentials['SECRET_KEY'], auth.config_credentials['ALGORITHM'])
-            return payload['sub']
-        except:
+            payload = jwt.decode(token,auth.config_credentials['SECRET_KEY'], auth.config_credentials['ALGORITHM'])
+            return payload
+        except jwt.ExpiredSignatureError:
+            raise message.get_message('Token Exoired', 401)
+        except Exception as e:
             raise message.get_message("Invalid Authorization Token or Authorization Token Expired, Login Again", 401)
+
+    def auth_wrapper(self, token : HTTPAuthorizationCredentials = Security(HTTPBearer())):
+        return self.decode_token(token.credentials)['sub']
     
